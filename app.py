@@ -4,7 +4,7 @@ from datetime import datetime
 
 st.set_page_config(page_title="FinanceOS", layout="wide")
 
-st.title("🏦 FinanceOS — Budget + Graphiques")
+st.title("🏦 FinanceOS — Budget Mensuel")
 
 # -----------------------------
 # BASE DE DONNÉES
@@ -22,6 +22,13 @@ CREATE TABLE IF NOT EXISTS expenses (
 )
 """)
 conn.commit()
+
+# -----------------------------
+# BUDGET MENSUEL
+# -----------------------------
+st.subheader("🎯 Budget mensuel")
+
+budget = st.number_input("Ton budget mensuel (€)", min_value=0.0, value=1500.0, step=50.0)
 
 # -----------------------------
 # AJOUT DÉPENSE
@@ -51,30 +58,50 @@ if st.button("Ajouter"):
 # -----------------------------
 # DONNÉES
 # -----------------------------
-c.execute("SELECT label, amount, category FROM expenses")
+c.execute("SELECT label, amount, category, date FROM expenses")
 data = c.fetchall()
 
 # -----------------------------
-# RÉSUMÉ
+# FILTRE MOIS COURANT
+# -----------------------------
+current_month = datetime.now().strftime("%Y-%m")
+
+monthly_data = [d for d in data if d[3].startswith(current_month)]
+
+total = sum(d[1] for d in monthly_data)
+
+# -----------------------------
+# INDICATEURS
 # -----------------------------
 st.divider()
 
-st.subheader("📊 Résumé")
+col1, col2, col3 = st.columns(3)
 
-total = sum(row[1] for row in data)
+col1.metric("Dépenses du mois", f"{total:.2f} €")
+col2.metric("Budget", f"{budget:.2f} €")
 
-col1, col2 = st.columns(2)
-col1.metric("Total dépenses", f"{total:.2f} €")
-col2.metric("Nombre d'opérations", len(data))
+diff = budget - total
+col3.metric("Reste", f"{diff:.2f} €")
 
 # -----------------------------
-# GRAPHIQUE 1 : PAR CATÉGORIE (camembert)
+# ALERTES
 # -----------------------------
-st.subheader("🥧 Répartition des dépenses")
+if total > budget:
+    st.error("⚠️ Tu as dépassé ton budget ce mois-ci")
+elif total > budget * 0.8:
+    st.warning("⚠️ Attention, tu approches de ton budget")
+else:
+    st.success("✔ Budget sous contrôle")
 
-if data:
+# -----------------------------
+# GRAPHIQUES
+# -----------------------------
+st.subheader("📊 Dépenses du mois")
+
+if monthly_data:
     categories = {}
-    for _, amount, category in data:
+
+    for _, amount, category, _ in monthly_data:
         categories[category] = categories.get(category, 0) + amount
 
     chart_data = [
@@ -83,18 +110,5 @@ if data:
     ]
 
     st.bar_chart(chart_data, x="category", y="amount")
-
-# -----------------------------
-# GRAPHIQUE 2 : LISTE DES DÉPENSES
-# -----------------------------
-st.subheader("📊 Dépenses individuelles")
-
-if data:
-    chart_data2 = [
-        {"label": d[0], "amount": d[1]}
-        for d in data
-    ]
-
-    st.bar_chart(chart_data2, x="label", y="amount")
 else:
-    st.info("Aucune donnée")
+    st.info("Aucune dépense ce mois-ci")
