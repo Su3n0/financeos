@@ -4,7 +4,7 @@ from datetime import datetime
 
 st.set_page_config(page_title="FinanceOS", layout="wide")
 
-st.title("🏦 FinanceOS — Budget (version sauvegardée)")
+st.title("🏦 FinanceOS — Budget + Graphiques")
 
 # -----------------------------
 # BASE DE DONNÉES
@@ -46,14 +46,12 @@ if st.button("Ajouter"):
             (label, amount, category, datetime.now().strftime("%Y-%m-%d %H:%M"))
         )
         conn.commit()
-        st.success("Dépense enregistrée ✔")
-    else:
-        st.warning("Remplis correctement les champs")
+        st.success("Dépense ajoutée ✔")
 
 # -----------------------------
-# LECTURE DONNÉES
+# DONNÉES
 # -----------------------------
-c.execute("SELECT label, amount, category, date FROM expenses ORDER BY id DESC")
+c.execute("SELECT label, amount, category FROM expenses")
 data = c.fetchall()
 
 # -----------------------------
@@ -70,14 +68,33 @@ col1.metric("Total dépenses", f"{total:.2f} €")
 col2.metric("Nombre d'opérations", len(data))
 
 # -----------------------------
-# HISTORIQUE
+# GRAPHIQUE 1 : PAR CATÉGORIE (camembert)
 # -----------------------------
-st.divider()
-
-st.subheader("📋 Historique")
+st.subheader("🥧 Répartition des dépenses")
 
 if data:
-    for d in data:
-        st.write(f"• {d[0]} — {d[1]} € ({d[2]}) — {d[3]}")
+    categories = {}
+    for _, amount, category in data:
+        categories[category] = categories.get(category, 0) + amount
+
+    chart_data = [
+        {"category": k, "amount": v}
+        for k, v in categories.items()
+    ]
+
+    st.bar_chart(chart_data, x="category", y="amount")
+
+# -----------------------------
+# GRAPHIQUE 2 : LISTE DES DÉPENSES
+# -----------------------------
+st.subheader("📊 Dépenses individuelles")
+
+if data:
+    chart_data2 = [
+        {"label": d[0], "amount": d[1]}
+        for d in data
+    ]
+
+    st.bar_chart(chart_data2, x="label", y="amount")
 else:
-    st.info("Aucune dépense enregistrée")
+    st.info("Aucune donnée")
