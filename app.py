@@ -1,41 +1,10 @@
 import streamlit as st
 import sqlite3
-import requests
 from datetime import datetime
 
 st.set_page_config(page_title="FinanceOS", layout="wide")
 
-st.title("🏦 FinanceOS — Copilote IA sécurisé")
-
-# -----------------------------
-# IA (clé sécurisée via Streamlit Secrets)
-# -----------------------------
-def ask_ai(prompt):
-    API_KEY = st.secrets["OPENAI_API_KEY"]
-
-    headers = {
-        "Authorization": f"Bearer {API_KEY}",
-        "Content-Type": "application/json"
-    }
-
-    data = {
-        "model": "gpt-4o-mini",
-        "messages": [
-            {"role": "system", "content": "Tu es un conseiller financier."},
-            {"role": "user", "content": prompt}
-        ]
-    }
-
-    response = requests.post(
-        "https://api.openai.com/v1/chat/completions",
-        headers=headers,
-        json=data
-    )
-
-    st.write("DEBUG API RESPONSE:")
-    st.write(response.json())  # 👈 IMPORTANT
-
-    return "STOP DEBUG"
+st.title("🏦 FinanceOS — IA locale intelligente")
 
 # -----------------------------
 # BASE DE DONNÉES
@@ -62,7 +31,7 @@ st.subheader("➕ Ajouter une dépense")
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    label = st.text_input("Nom")
+    label = st.text_input("Nom de la dépense")
 
 with col2:
     amount = st.number_input("Montant (€)", min_value=0.0, step=1.0)
@@ -91,16 +60,16 @@ data = c.fetchall()
 total = sum(d[1] for d in data)
 
 # -----------------------------
-# DASHBOARD
+# BUDGET
 # -----------------------------
 st.divider()
 
-st.subheader("📊 Situation financière")
+st.subheader("📊 Budget mensuel")
 
-budget = st.number_input("Budget mensuel (€)", value=1500.0)
+budget = st.number_input("Budget mensuel (€)", value=1500.0, step=50.0)
 
 col1, col2 = st.columns(2)
-col1.metric("Dépenses", f"{total:.2f} €")
+col1.metric("Dépenses totales", f"{total:.2f} €")
 col2.metric("Reste", f"{budget - total:.2f} €")
 
 # -----------------------------
@@ -120,36 +89,67 @@ if data:
     ]
 
     st.bar_chart(chart_data, x="category", y="amount")
+else:
+    st.info("Aucune dépense enregistrée")
 
 # -----------------------------
-# IA
+# IA LOCALE SIMULÉE
 # -----------------------------
 st.divider()
 
-st.subheader("🤖 Copilote IA")
+st.subheader("🤖 Copilote financier (IA locale)")
 
-if st.button("💬 Analyser mon budget"):
-
-    summary = f"""
-    Situation financière :
-
-    - Dépenses totales : {total:.2f} €
-    - Budget mensuel : {budget:.2f} €
-    - Reste : {budget - total:.2f} €
-    - Nombre de transactions : {len(data)}
-
-    Détail :
-    """
-
+def ask_ai(total, budget, data):
     categories = {}
     for _, amount, category in data:
         categories[category] = categories.get(category, 0) + amount
 
-    for k, v in categories.items():
-        summary += f"- {k} : {v:.2f} €\n"
+    percent_used = (total / budget) * 100 if budget > 0 else 0
+    top_category = max(categories, key=categories.get) if categories else None
 
-    with st.spinner("Analyse de l'IA..."):
-        result = ask_ai(summary)
+    if total == 0:
+        return "Tu n’as encore aucune dépense. Ajoute des transactions pour obtenir une analyse."
 
-    st.subheader("🧠 Analyse IA")
+    message = "🧠 Analyse financière intelligente :\n\n"
+
+    # Situation globale
+    if percent_used > 100:
+        message += "⚠️ Tu as dépassé ton budget mensuel.\n\n"
+    elif percent_used > 80:
+        message += "⚠️ Tu es proche de ton budget.\n\n"
+    elif percent_used > 50:
+        message += "⚖️ Dépenses modérées, surveille ton rythme.\n\n"
+    else:
+        message += "✔ Bonne gestion de ton budget.\n\n"
+
+    # Catégorie principale
+    if top_category:
+        message += f"📊 Dépense principale : {top_category}\n\n"
+
+        if top_category == "Loisirs":
+            message += "💡 Conseil : surveille tes dépenses loisirs.\n"
+        elif top_category == "Alimentation":
+            message += "💡 Conseil : optimise tes achats alimentaires.\n"
+        elif top_category == "Logement":
+            message += "💡 Conseil : dépense fixe importante à surveiller.\n"
+        else:
+            message += "💡 Conseil : équilibre tes dépenses.\n"
+
+    # Épargne
+    savings = budget - total
+
+    if savings > 0:
+        message += f"\n💰 Épargne possible ce mois-ci : {savings:.2f} €"
+    else:
+        message += "\n💰 Tu es en déficit ce mois-ci."
+
+    return message
+
+
+if st.button("💬 Analyser ma situation"):
+
+    with st.spinner("Analyse en cours..."):
+        result = ask_ai(total, budget, data)
+
+    st.subheader("🧠 Résultat de l’IA")
     st.write(result)
