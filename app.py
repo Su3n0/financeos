@@ -21,14 +21,8 @@ def ask_ai(prompt):
     data = {
         "model": "gpt-4o-mini",
         "messages": [
-            {
-                "role": "system",
-                "content": "Tu es un conseiller financier personnel. Tu aides l'utilisateur à gérer son budget, ses dépenses et ses investissements de manière prudente et pédagogique."
-            },
-            {
-                "role": "user",
-                "content": prompt
-            }
+            {"role": "system", "content": "Tu es un conseiller financier."},
+            {"role": "user", "content": prompt}
         ]
     }
 
@@ -38,7 +32,10 @@ def ask_ai(prompt):
         json=data
     )
 
-    return response.json()["choices"][0]["message"]["content"]
+    st.write("DEBUG API RESPONSE:")
+    st.write(response.json())  # 👈 IMPORTANT
+
+    return "STOP DEBUG"
 
 # -----------------------------
 # BASE DE DONNÉES
