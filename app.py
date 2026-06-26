@@ -1,10 +1,44 @@
 import streamlit as st
 import sqlite3
+import requests
 from datetime import datetime
 
 st.set_page_config(page_title="FinanceOS", layout="wide")
 
-st.title("🏦 FinanceOS — Copilote IA")
+st.title("🏦 FinanceOS — Copilote IA sécurisé")
+
+# -----------------------------
+# IA (clé sécurisée via Streamlit Secrets)
+# -----------------------------
+def ask_ai(prompt):
+    API_KEY = st.secrets["OPENAI_API_KEY"]
+
+    headers = {
+        "Authorization": f"Bearer {API_KEY}",
+        "Content-Type": "application/json"
+    }
+
+    data = {
+        "model": "gpt-4o-mini",
+        "messages": [
+            {
+                "role": "system",
+                "content": "Tu es un conseiller financier personnel. Tu aides l'utilisateur à gérer son budget, ses dépenses et ses investissements de manière prudente et pédagogique."
+            },
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ]
+    }
+
+    response = requests.post(
+        "https://api.openai.com/v1/chat/completions",
+        headers=headers,
+        json=data
+    )
+
+    return response.json()["choices"][0]["message"]["content"]
 
 # -----------------------------
 # BASE DE DONNÉES
@@ -37,7 +71,10 @@ with col2:
     amount = st.number_input("Montant (€)", min_value=0.0, step=1.0)
 
 with col3:
-    category = st.selectbox("Catégorie", ["Alimentation", "Logement", "Transport", "Loisirs", "Autre"])
+    category = st.selectbox(
+        "Catégorie",
+        ["Alimentation", "Logement", "Transport", "Loisirs", "Autre"]
+    )
 
 if st.button("Ajouter"):
     if label and amount > 0:
@@ -57,38 +94,54 @@ data = c.fetchall()
 total = sum(d[1] for d in data)
 
 # -----------------------------
-# RÉSUMÉ
+# DASHBOARD
 # -----------------------------
 st.divider()
 
 st.subheader("📊 Situation financière")
 
-st.metric("Total dépenses", f"{total:.2f} €")
-st.metric("Nombre d'opérations", len(data))
+budget = st.number_input("Budget mensuel (€)", value=1500.0)
+
+col1, col2 = st.columns(2)
+col1.metric("Dépenses", f"{total:.2f} €")
+col2.metric("Reste", f"{budget - total:.2f} €")
 
 # -----------------------------
-# IA COPILOTE
+# GRAPHIQUES
+# -----------------------------
+st.subheader("📊 Répartition des dépenses")
+
+if data:
+    categories = {}
+
+    for _, amount, category in data:
+        categories[category] = categories.get(category, 0) + amount
+
+    chart_data = [
+        {"category": k, "amount": v}
+        for k, v in categories.items()
+    ]
+
+    st.bar_chart(chart_data, x="category", y="amount")
+
+# -----------------------------
+# IA
 # -----------------------------
 st.divider()
 
-st.subheader("🤖 Copilote financier IA")
+st.subheader("🤖 Copilote IA")
 
-budget = st.number_input("Ton budget mensuel (€)", value=1500.0)
+if st.button("💬 Analyser mon budget"):
 
-if st.button("Analyser ma situation"):
-
-    # -----------------------------
-    # ON CRÉE UN RÉSUMÉ SIMPLE (TRÈS IMPORTANT)
-    # -----------------------------
     summary = f"""
-    Situation financière de l'utilisateur :
+    Situation financière :
 
     - Dépenses totales : {total:.2f} €
-    - Nombre de transactions : {len(data)}
     - Budget mensuel : {budget:.2f} €
     - Reste : {budget - total:.2f} €
+    - Nombre de transactions : {len(data)}
 
-    Répartition :
+    Détail :
     """
 
     categories = {}
@@ -98,23 +151,8 @@ if st.button("Analyser ma situation"):
     for k, v in categories.items():
         summary += f"- {k} : {v:.2f} €\n"
 
-    # -----------------------------
-    # SIMULATION IA (VERSION GRATUITE SIMPLE)
-    # -----------------------------
-    st.subheader("Analyse IA")
+    with st.spinner("Analyse de l'IA..."):
+        result = ask_ai(summary)
 
-    if total > budget:
-        st.error("⚠️ Tu dépenses plus que ton budget.")
-        st.write("👉 Priorité : réduire les dépenses non essentielles.")
-        st.write("👉 Risque : déséquilibre financier.")
-    elif total > budget * 0.8:
-        st.warning("⚠️ Tu es proche de ton budget.")
-        st.write("👉 Attention aux dépenses variables.")
-    else:
-        st.success("✔ Situation saine.")
-        st.write("👉 Tu peux envisager d’investir une partie de ton surplus.")
-
-    st.divider()
-
-    st.subheader("Résumé généré pour IA (version future ChatGPT)")
-    st.text(summary)
+    st.subheader("🧠 Analyse IA")
+    st.write(result)
